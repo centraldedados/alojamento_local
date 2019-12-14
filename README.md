@@ -32,9 +32,5 @@ de trabalho em fetch_rnal_setup.py !
 ## Fonte da lista de concelhos
 
 A identificação dos concelhos e dos respectivos código DICOFRE
-encontra-se na página ...
-
-      http://www.dgterritorio.pt/cartografia_e_geodesia/cartografia/carta_administrativa_oficial_de_portugal_caop/caop__download_/carta_administrativa_oficial_de_portugal___versao_2018__em_vigor_/
-
-... onde a podemos baixar a partir do link 'Informação extra'.
+encontra-se na página da [Carta Administrativa de Portugal](http://www.dgterritorio.pt/cartografia_e_geodesia/cartografia/carta_administrativa_oficial_de_portugal_caop/caop__download_/carta_administrativa_oficial_de_portugal___versao_2018__em_vigor_) onde a podemos baixar a partir do link 'Informação extra'.
 
