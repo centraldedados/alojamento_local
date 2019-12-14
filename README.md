@@ -6,7 +6,7 @@ Scraping por concelho, baseado num scraper anterior, sobre RoboBrowser, criado p
 
 Na directoria de saída (configuarada em *fetch_rnal_setup.py*) é criada automaticamente uma nova pasta cujo nome se baseia na data e hora correntes. Dentro dessa pasta, o scraper coloca um CSV por concelho cujo nome tem a seguinte estrutura:
 
-  Down_<DICO>_<NOME>.csv
+    Down_<DICO>_<NOME>.csv
   
 DICO é o código CAOP de 4 dígitos e NOME o nome do concelho em maiusculas. 
 
