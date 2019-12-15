@@ -304,7 +304,8 @@ def main(p_setup, minidx=0, maxidx=-1, opt_excs=[]):
 	# Divisao dos concelhos maiores em partes para evitar
 	#  'connection reset'			
 	datas_download_parcial = [	
-		[None,"2014-12-31"],		
+		[None,"2013-12-31"],		
+		["2014-01-01", "2014-12-31"],		
 		["2015-01-01", "2015-12-31"],		
 		["2016-01-01", "2016-06-30"],
 		["2016-07-01", "2016-12-31"],
@@ -321,7 +322,8 @@ def main(p_setup, minidx=0, maxidx=-1, opt_excs=[]):
 	]
 	#
 	sufixos_download_parcial = [
-		"ATE2014",
+		"ATE2013",
+		"2014",
 		"2015",
 		"2016_1SEM",
 		"2016_2SEM",
