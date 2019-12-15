@@ -10,11 +10,18 @@ Na directoria de saída (configuarada em *fetch_rnal_setup.py*) é criada automa
   
 DICO é o código CAOP de 4 dígitos e NOME o nome do concelho em maiusculas. 
 
+Concelhos como Porto e Lisboa tem um número extremamente elevado de registos, o que obriga a dividir as operções de download em partes para evitar o cancelamento da ligação com o site. Nesse caso o nome inclui uma sigla de parte ...
+
+    Down_<DICO>_<NOME>_<PARTE>.csv
+
+... que indica ano, ano e semestre ou ano e trimestre, consoante a necessidade. 
+
 ## Exemplo de utilização
    
     python3 fetch_rnal.py   (baixa os 308 concelhos)
     python3 fetch_rnal.py -i 10 (baixa a partir do 11º inclusive)
     python3 fetch_rnal.py -i 1 -f 10 (baixa do 2º ao 11º inclusive)
+    python3 fetch_rnal.py -i 150 -f 250 -x "1106, 1312" (baixa do 151º ao 251º excluíndo Lisboa e Porto)
 
 ## Dependências
 
