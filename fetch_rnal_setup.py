@@ -10,7 +10,7 @@ SETUP = {
 	"TS_FORMAT": "{0:%Y%m%d_%H%M}",
 	"RETRIES_LIMIT": 900, # 900 * 2 = 1800 s = 30 min
 	"HEADLESS": True,
-	"BIG": ['1106', '1312'] # Lisboa e Porto
+	"BIG": ['1106', '1312', '0801'] # Lisboa, Porto e Albufeira
 }
 
 #
