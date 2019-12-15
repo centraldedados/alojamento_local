@@ -19,8 +19,9 @@ SETUP = {
 # 				 site.
 # FINALDESTINATION - Directoria onde são criadas as directorias de 
 #					 destino final dos dados.
-# CONCELHOS_CSV - Nome do ficheiro de listagem de concelhos, a colocar 
-#                 junto deste ficheiro de configuração.
+# CONCELHOS_CSV - Nome do ficheiro de listagem de concelhos, em CSV sem
+#		  cabeçalhos, a colocar junto deste ficheiro de 
+#                 configuração.
 # TS_FORMAT - Formato de data e hora a incluir no nome de cada nova 
 #			   directoria de destino final.
 # RETRIES_LIMIT - Máximo de tentativas para encontrar o ficheiro baixado
