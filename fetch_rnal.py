@@ -70,20 +70,36 @@
 import argparse
 
 from os import listdir, unlink, rename, mkdir
-from os.path import join as path_join, exists, getctime
-from shutil import copyfile
+from os.path import join as path_join, exists, getctime, getsize
+#from shutil import copyfile
 from datetime import datetime as dt
 from time import localtime, sleep
+from re import split as re_split
 
 from splinter import Browser
 
 from fetch_rnal_setup import SETUP
 
+MAX_COUNTER = 60
+
+# Método de cópia de ficheiros com transformação da codificação de 
+#  caracteres de Latin-1 (ISO_8859-1:1987, semelhante a Windows-1252 mas
+#  mais abrangente) para UTF-8.
+def copyfile(p_frompath, p_topath):
+	READSZ = 100
+	with open(p_frompath, 'r', encoding="latin-1") as rfilehandle:
+		with open(p_topath, 'w', encoding="utf-8") as tfilehandle:
+			readcontents = rfilehandle.readlines(READSZ)
+			while len(readcontents) > 0:
+				tfilehandle.writelines(readcontents)
+				readcontents = rfilehandle.readlines(READSZ)
+			
+
 # Carregamento da lista de concelhos
 def read_concelhos(p_setup, out_concdict):
 	
 	fl = open(p_setup['CONCELHOS_CSV'])
-	cnt = 0
+
 	for row in fl:
 		dicofre, conc = row.split(';')
 		out_concdict[dicofre] = conc.strip()
@@ -102,8 +118,68 @@ def baixarConcelho(p_browser, p_dico_str):
 		# Clicar em Pesquisar
 		p_browser.find_by_id("wt131").click()
 
-		if p_browser.is_element_not_present_by_id("wt103", wait_time=2):
-			print("Nao ha link para download")
+		counter = 0
+		while counter < MAX_COUNTER and p_browser.is_element_not_present_by_id("wt103", wait_time=2):
+			counter += 1
+			sleep(2)
+			
+		if p_browser.is_element_not_present_by_id("wt103"):	
+			raise RuntimeError("Nao ha link para download")			
+
+		# Clicar o link de download, depois de obtido o resultado
+		p_browser.click_link_by_id("wt103")
+		
+		# Fechar o popup de aviso ao utilizador
+		alert = p_browser.get_alert()
+		alert.accept()
+
+# Operação de baixar multiplos CSV do concelho corrente		
+def baixarConcelhoParte(p_browser, p_dico_str, fromdate=None, todate=None):
+	
+		if p_browser.is_element_not_present_by_id("wt140", wait_time=2):
+			print("Nao ha selector de concelhos")
+	
+		# Seleccionar o concelho
+		#   eliminado trailing zeros
+		dico = str(int(p_dico_str))
+		p_browser.select("wt140", dico)
+		
+		# Marcar data de inicio
+		if not fromdate is None:
+			
+			counter = 0
+			while counter < MAX_COUNTER and p_browser.is_element_not_present_by_id("wtData1", wait_time=2):
+				counter += 1
+				sleep(2)
+
+			if p_browser.is_element_not_present_by_id("wtData1"):
+				raise RuntimeError("Nao ha caixa de data inicial")	
+				
+			p_browser.fill('wtData1', fromdate)
+
+		# Marcar data de fim
+		if not todate is None:
+			
+			counter = 0
+			while counter < MAX_COUNTER and p_browser.is_element_not_present_by_id("wtData2", wait_time=2):
+				counter += 1
+				sleep(2)
+
+			if p_browser.is_element_not_present_by_id("wtData2"):
+				raise RuntimeError("Nao ha caixa de data final")	
+				
+			p_browser.fill('wtData2', todate)
+		
+		# Clicar em Pesquisar
+		p_browser.find_by_id("wt131").click()
+
+		counter = 0
+		while counter < MAX_COUNTER and p_browser.is_element_not_present_by_id("wt103", wait_time=2):
+			counter += 1
+			sleep(2)
+			
+		if p_browser.is_element_not_present_by_id("wt103"):	
+			raise RuntimeError("Nao ha link para download")			
 
 		# Clicar o link de download, depois de obtido o resultado
 		p_browser.click_link_by_id("wt103")
@@ -113,7 +189,7 @@ def baixarConcelho(p_browser, p_dico_str):
 		alert.accept()
 
 # Mover o CSV corrente para o destino final		
-def move_downloaded_files(p_setup, p_finalfolder, p_concdict, p_starttime, p_dico):
+def move_downloaded_files(p_setup, p_finalfolder, p_concdict, p_starttime, p_dico, p_exec_idx, opt_suffix=''):
 	
 	frompath = p_setup["DOWNLOADS_TO"]
 	
@@ -121,7 +197,7 @@ def move_downloaded_files(p_setup, p_finalfolder, p_concdict, p_starttime, p_dic
 	retries = 0
 	
 	# O aparecimento de cada novo ficheiro baixado é assíncrono, pelo que 
-	#  é  necessário aguardar por ele.
+	#  é  necessário aguardar pelo respectivo fecho.
 	# São executadas sucessivas tentativas de encontrar um ficheiro CSV
 	#  com data posterior a p_starttime separadas por um intervalo de dois segundos 
 	#  até um número máximo de tentativas indicado em p_setup["RETRIES_LIMIT"].
@@ -147,24 +223,68 @@ def move_downloaded_files(p_setup, p_finalfolder, p_concdict, p_starttime, p_dic
 					# O ficheiro CSV pretendido está identificado, vamos copia-lo
 					#  para o destino final com um nome que indica o concelho 
 					#  respectivo
+					
+					########################################################
+					# SOLUÇÃO ISSUE #2
+					########################################################
+					# Necessário verificar se o browser já terminou de 
+					#  preencher o ficheiro baixado, avaliando se, após
+					#  um segundo, o tamanho se mantem igual e maior que
+					#  zero.
+					maxcounttest = 20
+					counttest = 0
+					prevsz = 0
+					sz = getsize(fullpath)
+					while counttest < maxcounttest and (sz < 1 or sz != prevsz):
+						counttest += 1
+						sleep(1)
+						prevsz = sz
+						sz = getsize(fullpath)
+						
+					if sz < 1:
+						raise RuntimeError("Ficheiro de download esta' vazio")
+					
 					found = True
-					destfull = path_join(p_finalfolder, 'Down_{0}_{1}.csv'.format(p_dico, p_concdict[p_dico]))
+					concname = p_concdict[p_dico]
+					if len(opt_suffix) > 0:
+						fname = 'Down_{0}_{1}_{2}.csv'.format(p_dico, concname, opt_suffix)
+					else:
+						fname = 'Down_{0}_{1}.csv'.format(p_dico, concname)
+					
+					print(">", p_exec_idx, concname, fname)	
+					destfull = path_join(p_finalfolder, fname)
 					copyfile(fullpath, destfull)
 					unlink(fullpath)
 					
 		# Espera dois segundos
 		sleep(2)
+		
+	#print("retries download:", retries)	
 				
 				
         		
-def main(p_setup, minidx=0, maxidx=-1):
+def main(p_setup, minidx=0, maxidx=-1, opt_excs=[]):
 
 	# Rotina / função principal
-	
+	#
+	# Segue a ordem da lista de concelhos CAOP para baixar cada
+	#  concelho sequencialmente.
+	#
+	# Parâmetros -------------------------------------------------------
+	# minidx - minimo indice da lista CAOP - primeiro concelho a 
+	#   processar, -1 começa do início
+	# maxidx - máximo indice da lista CAOP - último concelho a 
+	#   processar, -1 indica o final da lista
+	#
+	#  Parâmetro opcional
+	# opt_excs - códigos DICO a excluir do processamento, 
+	#	em texto separado por vírgulas
+	# ------------------------------------------------------------------
+
 	# Alteracoes de perfil do utilizador do Firefox para garantir que os 
 	#  downloads sao encaminhados para uma pasta, sem interaccao com o 
 	#  utilizador, evitando a abertura do popup a perguntar se o utilizador 
-	#  quer baixar ou abrir o ficheiro.
+	#  quer baixar ou abrir o ficheiro.	
 	profile = {
 		"browser.download.folderList": 2,
 		"browser.download.dir": p_setup["DOWNLOADS_TO"],
@@ -178,6 +298,45 @@ def main(p_setup, minidx=0, maxidx=-1):
 	read_concelhos(p_setup, concdict)
 	# print(concdict)
 	
+	########################################################
+	# SOLUÇÃO ISSUE #1
+	########################################################
+	# Divisao dos concelhos maiores em partes para evitar
+	#  'connection reset'			
+	datas_download_parcial = [	
+		[None,"2014-12-31"],		
+		["2015-01-01", "2015-12-31"],		
+		["2016-01-01", "2016-06-30"],
+		["2016-07-01", "2016-12-31"],
+		["2017-01-01", "2017-06-30"],
+		["2017-07-01", "2017-12-31"],
+		["2018-01-01", "2018-03-31"],
+		["2018-04-01", "2018-06-30"],
+		["2018-07-01", "2018-09-30"],
+		["2018-10-01", "2018-12-31"],
+		["2019-01-01", "2019-06-30"],
+		["2019-07-01", "2019-12-31"]
+		
+		# ["2020-01-01", None]
+	]
+	#
+	sufixos_download_parcial = [
+		"ATE2014",
+		"2015",
+		"2016_1SEM",
+		"2016_2SEM",
+		"2017_1SEM",
+		"2017_2SEM",
+		"2018_1TRIM",
+		"2018_2TRIM",
+		"2018_3TRIM",
+		"2018_4TRIM",
+		"2019_1SEM",
+		"2019_2SEM"
+		#"DESDE2020"
+	]
+	########################################################
+		
 	# Preparacao da directoria para destino final dos ficheiros CSV
 	# definitvos, copia dos ficheiros baixados mas com nomes alterados 
 	ts_dirname = p_setup["TS_FORMAT"].format(dt.now())
@@ -192,13 +351,24 @@ def main(p_setup, minidx=0, maxidx=-1):
 
 	browser = Browser('firefox', profile_preferences=profile, headless=p_setup["HEADLESS"])
 	browser.visit(p_setup["URL"])
+
+	if len(opt_excs) > 0:
+		print("Concelhos a excluir:", opt_excs)
+		
+	exec_idx = 0
 	
 	# Para cada código de concelho ...
 	for ci, dico in enumerate(concdict.keys()):
+				
+		# Saltar excepções
+		if dico in opt_excs:
+			continue
 
 		# Avançar para o concelho inicial
 		if minidx > 0 and ci < minidx:
 			continue
+			
+		exec_idx += 1
 
 		try:
 			
@@ -206,19 +376,31 @@ def main(p_setup, minidx=0, maxidx=-1):
 			#  correspondente à presente tentativa de baixar
 			ref_datetime = dt.now()
 
-			print(ci, dico, concdict[dico], ref_datetime)
-
-			# Baixar o concelho atual
-			baixarConcelho(browser, dico)
-			
-			# Copiar ficheiro baixado para o destino final
-			move_downloaded_files(p_setup, final_dest_path, concdict, ref_datetime, dico)
-							
-			# Voltar ao formulario principal 
-			browser.reload()
+			# Baixar o concelho atual			
+			if dico in p_setup["BIG"]:	
+				########################################################
+				# SOLUÇÃO ISSUE #1
+				########################################################
+				# Divisao dos concelhos maiores em partes para evitar
+				#  'connection reset'			
+				for i, sufixo in enumerate(sufixos_download_parcial):					
+					fromd, tod = datas_download_parcial[i]
+					baixarConcelhoParte(browser, dico, fromdate=fromd, todate=tod)
+					# Copiar ficheiro baixado para o destino final
+					move_downloaded_files(p_setup, final_dest_path, concdict, ref_datetime, dico, exec_idx, opt_suffix=sufixo)	
+					# Voltar ao formulario principal 
+					browser.reload()
+			else:	
+				baixarConcelho(browser, dico)
+				# Copiar ficheiro baixado para o destino final
+				move_downloaded_files(p_setup, final_dest_path, concdict, ref_datetime, dico, exec_idx)		
+												
+				# Voltar ao formulario principal 
+				browser.reload()
 				
 		except Exception as ex:
-			print(ex)
+			#raise ex
+			print("... excecao em main():", ex)
 			
 		# Sair após o concelho final
 		if maxidx > -1 and ci >= maxidx:
@@ -230,12 +412,24 @@ def main(p_setup, minidx=0, maxidx=-1):
 
 # Ponto de entrada principal		
 if __name__ == "__main__":
+
+	# Parâmetros opcionais ---------------------------------------------
+	# -i - minimo indice da lista CAOP - primeiro concelho a processar
+	# -f - máximo indice da lista CAOP - último concelho a processar
+	# -x - códigos DICO a excluir do processamento, 
+	#	em texto separado por vírgulas
+	# ------------------------------------------------------------------
 	
 	parser = argparse.ArgumentParser(description='Scraping do RNAL')
 	parser.add_argument('-i', default=0, help='n.ordem concelho inicial', type=int)	
 	parser.add_argument('-f', default=-1, help='n.ordem concelho final', type=int)	
+	parser.add_argument('-x', default="", help='exclusoes, DICO seprados por virgulas')	
 	
 	args = parser.parse_args()
 	
-	main(SETUP, minidx=args.i, maxidx=args.f)
+	exceptions = []
+	if len(args.x) > 0:
+		exceptions.extend([spl for spl in re_split("[, ]", args.x) if len(spl.strip()) > 0])
+	
+	main(SETUP, minidx=args.i, maxidx=args.f, opt_excs=exceptions)
 
